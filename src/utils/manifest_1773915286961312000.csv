@@ -1,0 +1,2 @@
+ID,name,versionNumber,contentType,dataFileSizeBytes,createdBy,createdOn,modifiedBy,modifiedOn,parentId,synapseURL,dataFileMD5Hex,path,error
+syn51514132,ASNR-MICCAI-BraTS2023-GLI-Challenge-TrainingData.zip,1,application/zip,13172616844,3393723,1684392976445,3402445,1741583132040,syn51514105,https://www.synapse.org/#!Synapse:syn51514132.1,1abc1e06776230cc440977e4472dd5e1,/Users/andrewfranco/Documents/JetBrains/Pycharm/ brats-tumor-segmentation/data/raw/ASNR-MICCAI-BraTS2023-GLI-Challenge-TrainingData.zip,

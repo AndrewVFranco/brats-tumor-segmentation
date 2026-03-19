@@ -207,6 +207,7 @@ marimo/_lsp/
 __marimo__/
 
 # General
-data/
+data/raw/
+data/processed/
 *.nii.gz
 *.nii
