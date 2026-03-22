@@ -19,7 +19,7 @@ def main():
 
     with multiprocessing.Pool(processes=N) as pool:
         try:
-            results = list(tqdm(
+            list(tqdm(
                 pool.imap(preprocess_with_output, cases),
                 total=len(cases)
             ))
