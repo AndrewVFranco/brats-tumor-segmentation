@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from tqdm import tqdm
 from monai.losses import DiceCELoss
+from monai.inferers import sliding_window_inference
 from src.training.model import get_model
 from src.training.dataloader import get_dataloader
 from src.training.transforms import get_train_transforms, get_val_transforms
@@ -83,7 +84,7 @@ def main():
                     image = image.to(device)
                     label = label.to(device)
 
-                    output = model(image)
+                    output = sliding_window_inference(image, roi_size=(128, 128, 128), sw_batch_size=1, predictor=model)
                     val_loss = loss_function(output, label)
                     val_loss_epoch += val_loss.item()
 
