@@ -7,6 +7,8 @@ from pathlib import Path
 from tqdm import tqdm
 from monai.losses import DiceCELoss
 from monai.inferers import sliding_window_inference
+from torch.cuda.amp import GradScaler
+from torch.amp import autocast
 from src.training.model import get_model
 from src.training.dataloader import get_dataloader
 from src.training.transforms import get_train_transforms, get_val_transforms
@@ -45,6 +47,8 @@ def main():
 
     best_val_loss = float("inf")
 
+    scaler = GradScaler() if device.type == "cuda" else None
+
     with mlflow.start_run():
         mlflow.log_params({"learning_rate": 1e-4,
                            "batch_size": 1,
@@ -66,10 +70,19 @@ def main():
                 label = label.to(device)
 
                 optimizer.zero_grad()
-                output = model(image)
-                train_loss = loss_function(output, label)
-                train_loss.backward()
-                optimizer.step()
+
+                with autocast(device_type=device.type):
+                    output = model(image)
+                    train_loss = loss_function(output, label)
+
+                if scaler:
+                    scaler.scale(train_loss).backward()
+                    scaler.step(optimizer)
+                    scaler.update()
+                else:
+                    train_loss.backward()
+                    optimizer.step()
+
                 epoch_loss += train_loss.item()
 
             avg_loss = epoch_loss / len(train_dataloader)
@@ -84,8 +97,10 @@ def main():
                     image = image.to(device)
                     label = label.to(device)
 
-                    output = sliding_window_inference(image, roi_size=(128, 128, 128), sw_batch_size=1, predictor=model)
-                    val_loss = loss_function(output, label)
+                    with autocast(device_type=device.type):
+                        output = sliding_window_inference(image, roi_size=(128, 128, 128), sw_batch_size=1, predictor=model)
+                        val_loss = loss_function(output, label)
+
                     val_loss_epoch += val_loss.item()
 
             avg_val_loss = val_loss_epoch / len(val_dataloader)
