@@ -60,6 +60,7 @@ def main():
 
     scaler = GradScaler() if device.type == "cuda" else None
     start_epoch = 0
+    epochs_no_improvement = 0
 
     if (CHECKPOINT_DIR / "best_model.pth").exists():
         checkpoint = torch.load(CHECKPOINT_DIR / "best_model.pth", map_location=device)
@@ -176,6 +177,7 @@ def main():
                 }, CHECKPOINT_DIR / f"checkpoint_epoch_{epoch + 1}.pth")
 
             if avg_val_loss < best_val_loss:
+                epochs_no_improvement = 0
                 best_val_loss = avg_val_loss
                 torch.save({
                     "model": model.state_dict(),
@@ -184,6 +186,12 @@ def main():
                     "best_val_loss": best_val_loss,
                     "scheduler": scheduler.state_dict()
                 }, CHECKPOINT_DIR / f"best_model.pth")
+            else:
+                epochs_no_improvement += 1
+
+            if epochs_no_improvement > config["training"]["early_stopping_patience"]:
+                print(f"Early stopping triggered at epoch {epoch + 1}")
+                break
 
     return 0
 

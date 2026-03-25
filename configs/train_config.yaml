@@ -6,6 +6,7 @@ training:
   roi_size: [128, 128, 128]
   factor: 0.5
   patience: 10
+  early_stopping_patience: 20
 
 model:
   spatial_dims: 3
