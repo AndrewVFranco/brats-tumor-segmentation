@@ -74,7 +74,7 @@ def main():
         best_val_loss = checkpoint["best_val_loss"]
         print(f"Resuming from epoch {start_epoch}")
 
-    # Start model training loop
+    # Start the model training loop
     with mlflow.start_run():
         # Set logging parameters
         mlflow.log_params({"learning_rate": config["training"]["learning_rate"],
@@ -87,6 +87,8 @@ def main():
                            "loss_function": "DiceCE"
                            })
         mlflow.log_artifact(str(CONFIG_PATH))
+        total_params = sum(p.numel() for p in model.parameters())
+        mlflow.log_param("total_parameters", total_params)
 
         # Initialize training and validation dataloaders
         train_dataloader = get_dataloader(DATA_DIR, train_set, transforms=get_train_transforms(), shuffle=True)
