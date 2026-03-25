@@ -21,7 +21,7 @@ def get_train_transforms():
 
     return Compose([
         EnsureTyped(keys=["image", "label"]),
-        Orientationd(keys=["image", "label"]),
+        Orientationd(keys=["image", "label"], axcodes="RAS"),
         Spacingd(keys=["image", "label"], pixdim=(1.0, 1.0, 1.0), mode=("bilinear", "nearest")),
         RandFlipd(keys=["image", "label"], prob=0.5),
         RandRotate90d(keys=["image", "label"], prob=0.5),

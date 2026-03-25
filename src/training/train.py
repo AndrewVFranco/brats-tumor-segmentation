@@ -11,7 +11,6 @@ from tqdm import tqdm
 from monai.metrics import DiceMetric
 from monai.losses import DiceCELoss
 from monai.inferers import sliding_window_inference
-from torch.cuda.amp import GradScaler
 from torch.amp import autocast
 from src.training.model import get_model
 from src.training.dataloader import get_dataloader
@@ -59,7 +58,7 @@ def main():
     optimizer = optim.Adam(model.parameters(), lr=config["training"]["learning_rate"])
     scheduler = ReduceLROnPlateau(optimizer, factor=config["training"]["factor"], patience=config["training"]["patience"])
     loss_function = DiceCELoss(to_onehot_y=True, softmax=True)
-    scaler = GradScaler() if device.type == "cuda" else None
+    scaler = torch.amp.GradScaler('cuda') if device.type == "cuda" else None
     dice_wt = DiceMetric(include_background=False, reduction="mean", get_not_nans=False)
     dice_tc = DiceMetric(include_background=False, reduction="mean", get_not_nans=False)
     dice_et = DiceMetric(include_background=False, reduction="mean", get_not_nans=False)
