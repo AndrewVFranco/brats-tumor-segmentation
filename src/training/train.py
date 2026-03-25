@@ -1,4 +1,6 @@
 import sys
+
+import monai.networks.utils
 import torch
 import torch.optim as optim
 import mlflow
@@ -6,8 +8,10 @@ import json
 from pathlib import Path
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from tqdm import tqdm
+from monai.metrics import DiceMetric
 from monai.losses import DiceCELoss
 from monai.inferers import sliding_window_inference
+from monai.networks.utils import one_hot
 from torch.cuda.amp import GradScaler
 from torch.amp import autocast
 from src.training.model import get_model
@@ -42,6 +46,9 @@ def main():
     optimizer = optim.Adam(model.parameters(), lr=1e-4)
     scheduler = ReduceLROnPlateau(optimizer, factor=0.5, patience=10)
     loss_function = DiceCELoss(to_onehot_y=True, softmax=True)
+    dice_wt = DiceMetric(include_background=False, reduction="mean", get_not_nans=False)
+    dice_tc = DiceMetric(include_background=False, reduction="mean", get_not_nans=False)
+    dice_et = DiceMetric(include_background=False, reduction="mean", get_not_nans=False)
 
     NUM_EPOCHS = 100
 
@@ -113,15 +120,45 @@ def main():
                     with autocast(device_type=device.type):
                         output = sliding_window_inference(image, roi_size=(128, 128, 128), sw_batch_size=1, predictor=model)
                         val_loss = loss_function(output, label)
+                        model_output = torch.softmax(output, dim=1)
+                        model_output = torch.argmax(model_output, dim=1, keepdim=True)
+
+                        # WT = labels 1, 2, 3
+                        pred_wt = (model_output >= 1).float()
+                        label_wt = (label >= 1).float()
+
+                        # TC = labels 1, 3
+                        pred_tc = ((model_output == 1) | (model_output == 3)).float()
+                        label_tc = ((label == 1) | (label == 3)).float()
+
+                        # ET = label 3 only
+                        pred_et = (model_output == 3).float()
+                        label_et = (label == 3).float()
+
+                        dice_wt(y_pred=pred_wt, y=label_wt)
+                        dice_tc(y_pred=pred_tc, y=label_tc)
+                        dice_et(y_pred=pred_et, y=label_et)
 
                     val_loss_epoch += val_loss.item()
 
             avg_val_loss = val_loss_epoch / len(val_dataloader)
             scheduler.step(avg_val_loss)
+
+            calculated_wt_dice = dice_wt.aggregate().item()
+            calculated_tc_dice = dice_tc.aggregate().item()
+            calculated_et_dice = dice_et.aggregate().item()
+
             mlflow.log_metric("val_loss", avg_val_loss, step=epoch)
             mlflow.log_metric("learning_rate", optimizer.param_groups[0]["lr"], step=epoch)
+            mlflow.log_metric("dice_wt", calculated_wt_dice, step=epoch)
+            mlflow.log_metric("dice_tc", calculated_tc_dice, step=epoch)
+            mlflow.log_metric("dice_et", calculated_et_dice, step=epoch)
 
-            print(f"Epoch {epoch + 1}/{NUM_EPOCHS} | Train Loss: {avg_loss:.4f} | Val Loss: {avg_val_loss:.4f}")
+            print(f"Epoch {epoch + 1}/{NUM_EPOCHS} | Train Loss: {avg_loss:.4f} | Val Loss: {avg_val_loss:.4f} | WT: {calculated_wt_dice:.4f} | TC: {calculated_tc_dice:.4f} | ET: {calculated_et_dice:.4f}")
+
+            dice_wt.reset()
+            dice_tc.reset()
+            dice_et.reset()
 
             if (epoch + 1) % 10 == 0:
                 torch.save({
