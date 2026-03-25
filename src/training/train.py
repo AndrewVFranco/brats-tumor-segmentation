@@ -1,17 +1,15 @@
 import sys
-
-import monai.networks.utils
 import torch
 import torch.optim as optim
 import mlflow
 import json
+import yaml
 from pathlib import Path
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from tqdm import tqdm
 from monai.metrics import DiceMetric
 from monai.losses import DiceCELoss
 from monai.inferers import sliding_window_inference
-from monai.networks.utils import one_hot
 from torch.cuda.amp import GradScaler
 from torch.amp import autocast
 from src.training.model import get_model
@@ -24,6 +22,10 @@ def main():
     SPLITS_PATH = PROJECT_ROOT / "data" / "splits"
     CHECKPOINT_DIR = PROJECT_ROOT / "checkpoints"
     CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
+    CONFIG_PATH = PROJECT_ROOT / "configs" / "train_config.yaml"
+
+    with open(CONFIG_PATH, "r") as f:
+        config = yaml.safe_load(f)
 
     splits = {}
 
@@ -43,14 +45,14 @@ def main():
     model = get_model()
     model.to(device)
 
-    optimizer = optim.Adam(model.parameters(), lr=1e-4)
-    scheduler = ReduceLROnPlateau(optimizer, factor=0.5, patience=10)
+    optimizer = optim.Adam(model.parameters(), lr=config["training"]["learning_rate"])
+    scheduler = ReduceLROnPlateau(optimizer, factor=config["training"]["factor"], patience=config["training"]["patience"])
     loss_function = DiceCELoss(to_onehot_y=True, softmax=True)
     dice_wt = DiceMetric(include_background=False, reduction="mean", get_not_nans=False)
     dice_tc = DiceMetric(include_background=False, reduction="mean", get_not_nans=False)
     dice_et = DiceMetric(include_background=False, reduction="mean", get_not_nans=False)
 
-    NUM_EPOCHS = 100
+    NUM_EPOCHS = config["training"]["num_epochs"]
 
     mlflow.set_experiment(experiment_name="brats-segmentation")
 
@@ -69,13 +71,17 @@ def main():
         print(f"Resuming from epoch {start_epoch}")
 
     with mlflow.start_run():
-        mlflow.log_params({"learning_rate": 1e-4,
-                           "batch_size": 1,
+        mlflow.log_params({"learning_rate": config["training"]["learning_rate"],
+                           "batch_size": config["training"]["batch_size"],
                            "num_epochs": NUM_EPOCHS,
                            "optimizer": "Adam",
-                           "scheduler": scheduler.state_dict(),
+                           "scheduler": "ReduceLROnPlateau",
+                           "scheduler_factor": config["training"]["factor"],
+                           "scheduler_patience": config["training"]["patience"],
                            "loss_function": "DiceCE"
                            })
+        mlflow.log_artifact(str(CONFIG_PATH))
+
         train_dataloader = get_dataloader(DATA_DIR, train_set, transforms=get_train_transforms(), shuffle=True)
         val_dataloader = get_dataloader(DATA_DIR, val_set, transforms=get_val_transforms())
 
@@ -118,7 +124,7 @@ def main():
                     label = label.to(device)
 
                     with autocast(device_type=device.type):
-                        output = sliding_window_inference(image, roi_size=(128, 128, 128), sw_batch_size=1, predictor=model)
+                        output = sliding_window_inference(image, roi_size=config["training"]["roi_size"], sw_batch_size=config["training"]["sw_batch_size"], predictor=model)
                         val_loss = loss_function(output, label)
                         model_output = torch.softmax(output, dim=1)
                         model_output = torch.argmax(model_output, dim=1, keepdim=True)
@@ -165,7 +171,8 @@ def main():
                     "model": model.state_dict(),
                     "optimizer": optimizer.state_dict(),
                     "epoch": epoch + 1,
-                    "best_val_loss": best_val_loss
+                    "best_val_loss": best_val_loss,
+                    "scheduler": scheduler.state_dict()
                 }, CHECKPOINT_DIR / f"checkpoint_epoch_{epoch + 1}.pth")
 
             if avg_val_loss < best_val_loss:
@@ -174,9 +181,9 @@ def main():
                     "model": model.state_dict(),
                     "optimizer": optimizer.state_dict(),
                     "epoch": epoch + 1,
-                    "best_val_loss": best_val_loss
+                    "best_val_loss": best_val_loss,
+                    "scheduler": scheduler.state_dict()
                 }, CHECKPOINT_DIR / f"best_model.pth")
-
 
     return 0
 

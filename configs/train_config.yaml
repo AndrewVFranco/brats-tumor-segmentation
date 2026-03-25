@@ -1,0 +1,13 @@
+training:
+  learning_rate: 1e-4
+  num_epochs: 100
+  batch_size: 1
+  sw_batch_size: 1
+  roi_size: [128, 128, 128]
+  factor: 0.5
+  patience: 10
+
+model:
+  spatial_dims: 3
+  in_channels: 4
+  out_channels: 4
