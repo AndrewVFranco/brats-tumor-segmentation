@@ -78,10 +78,18 @@ class BraTSDataset(Dataset):
             return None
 
 def collate_skip_none(batch):
-    batch = [x for x in batch if x is not None]
-    if not batch:
+    # Flatten list samples
+    flattened = []
+    for item in batch:
+        if item is None:
+            continue
+        if isinstance(item, list):
+            flattened.extend(item)
+        else:
+            flattened.append(item)
+    if not flattened:
         return None
-    return torch.utils.data.dataloader.default_collate(batch)
+    return torch.utils.data.dataloader.default_collate(flattened)
 
 
         
