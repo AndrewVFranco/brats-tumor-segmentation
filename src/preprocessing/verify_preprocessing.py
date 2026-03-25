@@ -1,5 +1,4 @@
 import sys
-
 import nibabel as nib
 from pathlib import Path
 

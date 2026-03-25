@@ -91,6 +91,9 @@ def main():
             epoch_loss = 0.0
 
             for batch in train_dataloader:
+                if batch is None:
+                    continue
+
                 image = batch["image"]
                 label = batch["label"]
                 image = image.to(device)
@@ -118,6 +121,9 @@ def main():
             val_loss_epoch = 0.0
 
             for batch in val_dataloader:
+                if batch is None:
+                    continue
+
                 with torch.no_grad():
                     image = batch["image"]
                     label = batch["label"]

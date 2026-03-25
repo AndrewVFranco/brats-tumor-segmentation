@@ -1,6 +1,7 @@
 from torch.utils.data import DataLoader
 from pathlib import Path
 from src.training.dataset import BraTSDataset
+from src.training.dataset import collate_skip_none
 
 def get_dataloader(data_dir: Path, case_names, transforms, batch_size=1, shuffle=False):
     """
@@ -19,4 +20,4 @@ def get_dataloader(data_dir: Path, case_names, transforms, batch_size=1, shuffle
 
     dataset = BraTSDataset(data_dir, case_names, transforms)
 
-    return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=2, pin_memory=True)
+    return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=2, pin_memory=True, collate_fn=collate_skip_none)

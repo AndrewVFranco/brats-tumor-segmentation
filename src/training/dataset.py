@@ -37,39 +37,51 @@ class BraTSDataset(Dataset):
         # Get the case name at the specified index and store numpy modality arrays into modality_arrays
         case_name = self.case_names[idx]
 
-        modality_arrays = {
-            "seg": nib.load(self.data_dir / case_name / f"{case_name}-seg.nii.gz").get_fdata(),
-            "t1c": nib.load(self.data_dir / case_name / f"{case_name}-t1c.nii.gz").get_fdata(),
-            "t1n": nib.load(self.data_dir / case_name / f"{case_name}-t1n.nii.gz").get_fdata(),
-            "t2f": nib.load(self.data_dir / case_name / f"{case_name}-t2f.nii.gz").get_fdata(),
-            "t2w": nib.load(self.data_dir / case_name / f"{case_name}-t2w.nii.gz").get_fdata(),
-        }
+        try:
+            modality_arrays = {
+                "seg": nib.load(self.data_dir / case_name / f"{case_name}-seg.nii.gz").get_fdata(),
+                "t1c": nib.load(self.data_dir / case_name / f"{case_name}-t1c.nii.gz").get_fdata(),
+                "t1n": nib.load(self.data_dir / case_name / f"{case_name}-t1n.nii.gz").get_fdata(),
+                "t2f": nib.load(self.data_dir / case_name / f"{case_name}-t2f.nii.gz").get_fdata(),
+                "t2w": nib.load(self.data_dir / case_name / f"{case_name}-t2w.nii.gz").get_fdata(),
+            }
 
-        # Stack modality arrays into (4, H, W, D) structure
-        image = np.stack(
-            (
-                modality_arrays["t1c"],
-                modality_arrays["t1n"],
-                modality_arrays["t2f"],
-                modality_arrays["t2w"]
-            ),
-            axis=0
-        )
+            # Stack modality arrays into (4, H, W, D) structure
+            image = np.stack(
+                (
+                    modality_arrays["t1c"],
+                    modality_arrays["t1n"],
+                    modality_arrays["t2f"],
+                    modality_arrays["t2w"]
+                ),
+                axis=0
+            )
 
-        # Create segmentation map array and add dimension to fit (1, H, W, D) structure
-        label = np.uint8(modality_arrays["seg"])
-        label = np.expand_dims(label, axis=0)
+            # Create segmentation map array and add dimension to fit (1, H, W, D) structure
+            label = np.uint8(modality_arrays["seg"])
+            label = np.expand_dims(label, axis=0)
 
-        image_tensor = torch.tensor(image, dtype=torch.float32)
-        label_tensor = torch.tensor(label, dtype=torch.long)
+            image_tensor = torch.tensor(image, dtype=torch.float32)
+            label_tensor = torch.tensor(label, dtype=torch.long)
 
-        # Create the final output dictionary
-        tensors = {"image": image_tensor, "label": label_tensor}
+            # Create the final output dictionary
+            tensors = {"image": image_tensor, "label": label_tensor}
 
-        # Apply transforms if available
-        if self.transforms:
-            tensors = self.transforms(tensors)
+            # Apply transforms if available
+            if self.transforms:
+                tensors = self.transforms(tensors)
 
-        return tensors
+            return tensors
+
+        except Exception as e:
+            print(f"Failed to load: {case_name}")
+            return None
+
+def collate_skip_none(batch):
+    batch = [x for x in batch if x is not None]
+    if not batch:
+        return None
+    return torch.utils.data.dataloader.default_collate(batch)
+
 
         
