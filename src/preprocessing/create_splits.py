@@ -11,7 +11,7 @@ def create_splits(data_dir: Path, output_dir: Path):
     Takes processed data and splits it into stratified training, validation, and testing sets.
 
     Args:
-        data_dir (Path): Directory of the target case
+        data_dir (Path): Directory of cases to be split
         output_dir (Path): Output target directory to save the split dataset
 
     Returns:
