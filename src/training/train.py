@@ -48,6 +48,15 @@ def main():
     best_val_loss = float("inf")
 
     scaler = GradScaler() if device.type == "cuda" else None
+    start_epoch = 0
+
+    if (CHECKPOINT_DIR / "best_model.pth").exists():
+        checkpoint = torch.load(CHECKPOINT_DIR / "best_model.pth", map_location=device)
+        model.load_state_dict(checkpoint["model"])
+        optimizer.load_state_dict(checkpoint["optimizer"])
+        start_epoch = checkpoint["epoch"]
+        best_val_loss = checkpoint["best_val_loss"]
+        print(f"Resuming from epoch {start_epoch}")
 
     with mlflow.start_run():
         mlflow.log_params({"learning_rate": 1e-4,
@@ -59,7 +68,7 @@ def main():
         train_dataloader = get_dataloader(DATA_DIR, train_set, transforms=get_train_transforms(), shuffle=True)
         val_dataloader = get_dataloader(DATA_DIR, val_set, transforms=get_val_transforms())
 
-        for epoch in tqdm(range(NUM_EPOCHS)):
+        for epoch in tqdm(range(start_epoch, NUM_EPOCHS)):
             model.train()
             epoch_loss = 0.0
 
@@ -107,12 +116,23 @@ def main():
             mlflow.log_metric("val_loss", avg_val_loss, step=epoch)
 
             print(f"Epoch {epoch + 1}/{NUM_EPOCHS} | Train Loss: {avg_loss:.4f} | Val Loss: {avg_val_loss:.4f}")
+
             if (epoch + 1) % 10 == 0:
-                torch.save(model.state_dict(), CHECKPOINT_DIR / f"checkpoint_epoch_{epoch + 1}.pth")
+                torch.save({
+                    "model": model.state_dict(),
+                    "optimizer": optimizer.state_dict(),
+                    "epoch": epoch + 1,
+                    "best_val_loss": best_val_loss
+                }, CHECKPOINT_DIR / f"checkpoint_epoch_{epoch + 1}.pth")
 
             if avg_val_loss < best_val_loss:
                 best_val_loss = avg_val_loss
-                torch.save(model.state_dict(), CHECKPOINT_DIR / "best_model.pth")
+                torch.save({
+                    "model": model.state_dict(),
+                    "optimizer": optimizer.state_dict(),
+                    "epoch": epoch + 1,
+                    "best_val_loss": best_val_loss
+                }, CHECKPOINT_DIR / f"best_model.pth")
 
 
     return 0
