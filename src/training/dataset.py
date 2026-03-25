@@ -74,7 +74,7 @@ class BraTSDataset(Dataset):
             return tensors
 
         except Exception as e:
-            print(f"Failed to load: {case_name}")
+            print(f"Failed to load case {case_name}: {e}")
             return None
 
 def collate_skip_none(batch):
