@@ -41,6 +41,6 @@ def get_val_transforms():
 
     return Compose([
         EnsureTyped(keys=["image", "label"]),
-        Orientationd(keys=["image", "label"]),
+        Orientationd(keys=["image", "label"], axcodes="RAS"),
         Spacingd(keys=["image", "label"], pixdim=(1.0, 1.0, 1.0), mode=("bilinear", "nearest"))
     ])
