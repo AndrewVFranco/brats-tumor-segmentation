@@ -4,6 +4,7 @@ import torch.optim as optim
 import mlflow
 import json
 import yaml
+import argparse
 from pathlib import Path
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from tqdm import tqdm
@@ -17,10 +18,16 @@ from src.training.dataloader import get_dataloader
 from src.training.transforms import get_train_transforms, get_val_transforms
 
 def main():
+    parser = argparse.ArgumentParser(description="BraTS tumor segmentation training")
+    parser.add_argument("--data_dir", type=str, default=None)
+    parser.add_argument("--splits_path", type=str, default=None)
+    parser.add_argument("--checkpoint_dir", type=str, default=None)
+    args = parser.parse_args()
+
     PROJECT_ROOT = Path(__file__).resolve().parents[2]
-    DATA_DIR = PROJECT_ROOT / "data" / "processed"
-    SPLITS_PATH = PROJECT_ROOT / "data" / "splits"
-    CHECKPOINT_DIR = PROJECT_ROOT / "checkpoints"
+    DATA_DIR = Path(args.data_dir) if args.data_dir else PROJECT_ROOT / "data" / "processed"
+    SPLITS_PATH = Path(args.splits_path) if args.splits_path else PROJECT_ROOT / "data" / "splits"
+    CHECKPOINT_DIR = Path(args.checkpoint_dir) if args.checkpoint_dir else PROJECT_ROOT / "checkpoints"
     CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
     CONFIG_PATH = PROJECT_ROOT / "configs" / "train_config.yaml"
 

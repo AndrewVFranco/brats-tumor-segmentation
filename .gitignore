@@ -211,3 +211,5 @@ data/raw/
 data/processed/
 *.nii.gz
 *.nii
+/data/kaggledata/
+/data/splits/dataset-metadata.json
