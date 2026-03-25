@@ -4,6 +4,7 @@ import torch.optim as optim
 import mlflow
 import json
 from pathlib import Path
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 from tqdm import tqdm
 from monai.losses import DiceCELoss
 from monai.inferers import sliding_window_inference
@@ -39,6 +40,7 @@ def main():
     model.to(device)
 
     optimizer = optim.Adam(model.parameters(), lr=1e-4)
+    scheduler = ReduceLROnPlateau(optimizer, factor=0.5, patience=10)
     loss_function = DiceCELoss(to_onehot_y=True, softmax=True)
 
     NUM_EPOCHS = 100
@@ -54,6 +56,7 @@ def main():
         checkpoint = torch.load(CHECKPOINT_DIR / "best_model.pth", map_location=device)
         model.load_state_dict(checkpoint["model"])
         optimizer.load_state_dict(checkpoint["optimizer"])
+        scheduler.load_state_dict(checkpoint["scheduler"])
         start_epoch = checkpoint["epoch"]
         best_val_loss = checkpoint["best_val_loss"]
         print(f"Resuming from epoch {start_epoch}")
@@ -63,6 +66,7 @@ def main():
                            "batch_size": 1,
                            "num_epochs": NUM_EPOCHS,
                            "optimizer": "Adam",
+                           "scheduler": scheduler.state_dict(),
                            "loss_function": "DiceCE"
                            })
         train_dataloader = get_dataloader(DATA_DIR, train_set, transforms=get_train_transforms(), shuffle=True)
@@ -113,7 +117,9 @@ def main():
                     val_loss_epoch += val_loss.item()
 
             avg_val_loss = val_loss_epoch / len(val_dataloader)
+            scheduler.step(avg_val_loss)
             mlflow.log_metric("val_loss", avg_val_loss, step=epoch)
+            mlflow.log_metric("learning_rate", optimizer.param_groups[0]["lr"], step=epoch)
 
             print(f"Epoch {epoch + 1}/{NUM_EPOCHS} | Train Loss: {avg_loss:.4f} | Val Loss: {avg_val_loss:.4f}")
 
