@@ -3,6 +3,7 @@ import pytest
 from pathlib import Path
 from src.training.dataset import BraTSDataset
 
+@pytest.mark.skipif(not Path("data/processed").exists(), reason="No data available")
 def test_dataset_output():
     PROJECT_ROOT = Path(__file__).resolve().parents[1]
     DATA_DIR = PROJECT_ROOT / "data" / "processed"
