@@ -10,6 +10,7 @@ from contextlib import asynccontextmanager
 from monai.inferers import sliding_window_inference
 from src.training.model import get_model
 from src.preprocessing.preprocess import preprocess_array
+from src.training.transforms import get_inference_transforms
 
 CHECKPOINT_DIR = Path(os.getenv("CHECKPOINT_DIR", "checkpoints"))
 @asynccontextmanager
@@ -71,7 +72,11 @@ async def segment(request: Request,
                          axis=0
                          )
 
-        image = torch.tensor(image, dtype=torch.float32).unsqueeze(0).to(device)
+        tensors = {"image": image}
+        tensors = get_inference_transforms()(tensors)
+        image = tensors["image"]
+
+        image = image.float().unsqueeze(0).to(device)
 
         output = sliding_window_inference(image,
                                           roi_size=(128, 128, 128),
