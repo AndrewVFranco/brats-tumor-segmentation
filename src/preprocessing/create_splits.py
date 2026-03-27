@@ -26,7 +26,7 @@ def create_splits(data_dir: Path, output_dir: Path):
     for case in case_names:
         seg = nib.load(data_dir / case / f"{case}-seg.nii.gz").get_fdata()
         labels = np.unique(seg)
-        tumor_labels = [str(l) for l in [1, 2, 3] if l in labels]
+        tumor_labels = [str(label_id) for label_id in [1, 2, 3] if label_id in labels]
         strat_labels.append("_".join(tumor_labels))
 
     label_counts = Counter(strat_labels)

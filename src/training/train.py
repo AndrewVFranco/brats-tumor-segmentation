@@ -212,7 +212,7 @@ def main():
                     "epoch": epoch + 1,
                     "best_val_loss": best_val_loss,
                     "scheduler": scheduler.state_dict()
-                }, CHECKPOINT_DIR / f"best_model.pth")
+                }, CHECKPOINT_DIR / "best_model.pth")
             else:
                 epochs_no_improvement += 1
 
