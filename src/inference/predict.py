@@ -40,19 +40,19 @@ async def segment(request: Request,
         model = request.app.state.model
         device = request.app.state.device
 
-        with tempfile.NamedTemporaryFile(suffix=".nii", delete=False) as tmp:
+        with tempfile.NamedTemporaryFile(suffix=".nii.gz", delete=False) as tmp:
             tmp.write(await t1c.read())
             t1c_path = tmp.name
 
-        with tempfile.NamedTemporaryFile(suffix=".nii", delete=False) as tmp:
+        with tempfile.NamedTemporaryFile(suffix=".nii.gz", delete=False) as tmp:
             tmp.write(await t1n.read())
             t1n_path = tmp.name
 
-        with tempfile.NamedTemporaryFile(suffix=".nii", delete=False) as tmp:
+        with tempfile.NamedTemporaryFile(suffix=".nii.gz", delete=False) as tmp:
             tmp.write(await t2f.read())
             t2f_path = tmp.name
 
-        with tempfile.NamedTemporaryFile(suffix=".nii", delete=False) as tmp:
+        with tempfile.NamedTemporaryFile(suffix=".nii.gz", delete=False) as tmp:
             tmp.write(await t2w.read())
             t2w_path = tmp.name
 
