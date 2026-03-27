@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NeuralSeg — Brain Tumor Segmentation</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&family=DM+Mono:wght@300;400&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/@niivue/niivue@0.57.0/dist/niivue.umd.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f9f8f6;
+    --surface: #ffffff;
+    --border: #e8e6e1;
+    --border-strong: #d4d0c8;
+    --text: #1a1918;
+    --text-2: #6b6860;
+    --text-3: #9c9890;
+    --accent: #1a1918;
+    --ncr: #dc3545;
+    --edema: #28a745;
+    --et: #2563eb;
+    --ncr-light: #fdf0f1;
+    --edema-light: #f0faf2;
+    --et-light: #eff4ff;
+    --sidebar: 300px;
+    --header: 52px;
+    --radius: 8px;
+    --radius-sm: 4px;
+  }
+
+  html, body { height: 100%; overflow: hidden; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  /* Header */
+  header {
+    position: fixed; top: 0; left: 0; right: 0;
+    height: var(--header);
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 20px;
+    z-index: 100;
+  }
+
+  .logo {
+    font-family: 'Instrument Serif', serif;
+    font-size: 18px;
+    letter-spacing: -0.02em;
+    color: var(--text);
+  }
+
+  .logo span { font-style: italic; color: var(--text-2); }
+
+  .status {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 12px; font-family: 'DM Mono', monospace;
+    color: var(--text-2);
+  }
+
+  .status-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: #9c9890;
+    transition: background 0.3s;
+  }
+
+  .status-dot.ready { background: #22c55e; }
+  .status-dot.loading { background: #f59e0b; animation: pulse 1s infinite; }
+  .status-dot.error { background: var(--ncr); }
+
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  /* Layout */
+  .layout {
+    display: flex;
+    height: 100vh;
+    padding-top: var(--header);
+  }
+
+  /* Sidebar */
+  aside {
+    width: var(--sidebar);
+    flex-shrink: 0;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    overflow-y: auto;
+    height: 100%;
+  }
+
+  .sidebar-section {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar-label {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-3);
+    margin-bottom: 10px;
+  }
+
+  /* File inputs */
+  .modality-upload {
+    display: flex; flex-direction: column; gap: 6px;
+  }
+
+  .upload-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg);
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    position: relative;
+  }
+
+  .upload-row:hover { border-color: var(--border-strong); background: white; }
+  .upload-row.loaded { border-color: #22c55e; background: #f0faf2; }
+
+  .upload-row input[type="file"] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%;
+  }
+
+  .modality-tag {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    font-weight: 400;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: var(--border);
+    color: var(--text-2);
+    flex-shrink: 0;
+    letter-spacing: 0.02em;
+  }
+
+  .upload-name {
+    font-size: 12px; color: var(--text-2);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    flex: 1;
+  }
+
+  .upload-check {
+    width: 14px; height: 14px; flex-shrink: 0;
+    color: #22c55e; display: none;
+  }
+
+  .upload-row.loaded .upload-check { display: block; }
+
+  /* Segment button */
+  .btn-segment {
+    width: 100%;
+    padding: 10px;
+    background: var(--text);
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+    letter-spacing: 0.01em;
+    margin-top: 10px;
+  }
+
+  .btn-segment:hover:not(:disabled) { opacity: 0.85; }
+  .btn-segment:active:not(:disabled) { transform: scale(0.99); }
+  .btn-segment:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* View toggle */
+  .view-toggle {
+    display: flex; gap: 4px;
+  }
+
+  .view-btn {
+    flex: 1; padding: 7px 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    color: var(--text-2);
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: center;
+  }
+
+  .view-btn.active {
+    background: var(--text);
+    border-color: var(--text);
+    color: white;
+  }
+
+  /* Opacity sliders */
+  .overlay-controls { display: flex; flex-direction: column; gap: 10px; }
+
+  .overlay-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+  .overlay-header {
+    display: flex; align-items: center; justify-content: space-between;
+  }
+
+  .overlay-name {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12px; font-weight: 500;
+  }
+
+  .color-dot {
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  }
+
+  .overlay-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px; color: var(--text-2);
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    width: 100%; height: 3px;
+    border-radius: 2px;
+    background: var(--border);
+    outline: none;
+    cursor: pointer;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 13px; height: 13px;
+    border-radius: 50%;
+    background: var(--text);
+    cursor: pointer;
+    transition: transform 0.1s;
+  }
+
+
+  input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+
+  /* Metrics */
+  .metrics { display: flex; flex-direction: column; gap: 6px; }
+
+  .metric-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 6px 8px;
+    background: var(--bg);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+  }
+
+  .metric-label { font-size: 11px; color: var(--text-2); }
+
+  .metric-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px; font-weight: 400;
+    color: var(--text);
+  }
+
+  .metric-badge {
+    font-size: 10px; padding: 1px 5px;
+    border-radius: 3px; font-family: 'DM Mono', monospace;
+  }
+
+  .badge-wt { background: #fdf0f1; color: var(--ncr); }
+  .badge-tc { background: var(--edema-light); color: #166534; }
+  .badge-et { background: var(--et-light); color: #1d4ed8; }
+
+  /* Main canvas area */
+  main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: #0d0d0d;
+    position: relative;
+  }
+
+  #canvas-container {
+    flex: 1;
+    position: relative;
+  }
+
+  canvas {
+    width: 100% !important;
+    height: 100% !important;
+    display: block;
+  }
+
+  /* Empty state */
+  .empty-state {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 12px;
+    color: #3a3a3a;
+  }
+
+  .empty-icon {
+    width: 64px; height: 64px;
+    border: 1px solid #2a2a2a;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .empty-icon svg { opacity: 0.4; }
+
+  .empty-title {
+    font-family: 'Instrument Serif', serif;
+    font-size: 18px; color: #555;
+    font-style: italic;
+  }
+
+  .empty-sub { font-size: 12px; color: #3a3a3a; }
+
+  /* Loading overlay */
+  .loading-overlay {
+    position: absolute; inset: 0;
+    background: rgba(13,13,13,0.85);
+    display: none; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 16px; z-index: 10;
+  }
+
+  .loading-overlay.active { display: flex; }
+
+  .spinner {
+    width: 36px; height: 36px;
+    border: 2px solid #333;
+    border-top-color: #888;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .loading-text {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px; color: #888;
+    letter-spacing: 0.05em;
+  }
+
+  .loading-sub { font-size: 11px; color: #555; }
+
+  /* Progress steps */
+  .progress-steps {
+    display: flex; flex-direction: column; gap: 6px;
+    margin-top: 4px;
+  }
+
+  .step {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px; color: #555;
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  .step.active { color: #aaa; }
+  .step.done { color: #22c55e; }
+
+  .step-dot {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: #333; flex-shrink: 0;
+  }
+
+  .step.active .step-dot { background: #888; animation: pulse 1s infinite; }
+  .step.done .step-dot { background: #22c55e; }
+
+  .toggle-btn {
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    font-size: 11px;
+    font-family: 'DM Sans', sans-serif;
+    color: var(--text-2);
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.toggle-btn.active {
+    background: var(--text);
+    border-color: var(--text);
+    color: white;
+}
+
+  /* Canvas info bar */
+  .canvas-info {
+    position: absolute; bottom: 12px; left: 12px;
+    display: flex; gap: 8px; z-index: 5;
+  }
+
+  .info-pill {
+    padding: 4px 8px;
+    background: rgba(0,0,0,0.6);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 20px;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px; color: #888;
+    backdrop-filter: blur(4px);
+  }
+
+  /* Error toast */
+  .toast {
+    position: fixed; bottom: 20px; right: 20px;
+    padding: 10px 14px;
+    background: #1a0a0a;
+    border: 1px solid #5a1010;
+    border-radius: var(--radius-sm);
+    font-size: 12px; color: #f87171;
+    font-family: 'DM Mono', monospace;
+    z-index: 200;
+    display: none;
+    animation: slideIn 0.2s ease;
+  }
+
+  .toast.show { display: block; }
+  @keyframes slideIn { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+  /* Divider */
+  .divider { height: 1px; background: var(--border); margin: 0 16px; }
+
+  .sidebar-footer {
+    margin-top: auto;
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+  }
+
+  .footer-note {
+    font-size: 10px; color: var(--text-3);
+    line-height: 1.6;
+  }
+
+  .footer-note strong { color: var(--text-2); font-weight: 500; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Neural<span>Seg</span></div>
+  <div class="status">
+    <div class="status-dot" id="status-dot"></div>
+    <span id="status-text">Upload MRI volumes to begin</span>
+  </div>
+</header>
+
+<div class="layout">
+  <aside>
+
+    <!-- Upload -->
+    <div class="sidebar-section">
+      <div class="sidebar-label">MRI Modalities</div>
+      <div class="modality-upload">
+
+        <label class="upload-row" id="row-t1c">
+          <span class="modality-tag">T1c</span>
+          <span class="upload-name" id="name-t1c">Contrast enhanced</span>
+          <svg class="upload-check" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="2,8 6,12 14,4"/>
+          </svg>
+          <input type="file" id="file-t1c" accept=".nii,.nii.gz,.gz,application/gzip" onchange="onFileChange('t1c', this)">
+        </label>
+
+        <label class="upload-row" id="row-t1n">
+          <span class="modality-tag">T1n</span>
+          <span class="upload-name" id="name-t1n">Native T1</span>
+          <svg class="upload-check" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="2,8 6,12 14,4"/>
+          </svg>
+          <input type="file" id="file-t1n" accept=".nii,.nii.gz,.gz,application/gzip" onchange="onFileChange('t1n', this)">
+        </label>
+
+        <label class="upload-row" id="row-t2f">
+          <span class="modality-tag">T2f</span>
+          <span class="upload-name" id="name-t2f">FLAIR</span>
+          <svg class="upload-check" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="2,8 6,12 14,4"/>
+          </svg>
+          <input type="file" id="file-t2f" accept=".nii,.nii.gz,.gz,application/gzip" onchange="onFileChange('t2f', this)">
+        </label>
+
+        <label class="upload-row" id="row-t2w">
+          <span class="modality-tag">T2w</span>
+          <span class="upload-name" id="name-t2w">T2 weighted</span>
+          <svg class="upload-check" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="2,8 6,12 14,4"/>
+          </svg>
+          <input type="file" id="file-t2w" accept=".nii,.nii.gz,.gz,application/gzip" onchange="onFileChange('t2w', this)">
+        </label>
+
+      </div>
+      <button class="btn-segment" id="btn-segment" disabled onclick="runSegmentation()">
+        Run Segmentation
+      </button>
+    </div>
+
+    <!-- View controls -->
+    <div class="sidebar-section">
+      <div class="sidebar-label">View Mode</div>
+      <div class="view-toggle">
+        <button class="view-btn active" id="btn-multi" onclick="setView('multi')">Multiplanar</button>
+        <button class="view-btn" id="btn-3d" onclick="setView('3d')">3D Render</button>
+      </div>
+    </div>
+
+    <!-- Overlay opacity -->
+    <div class="sidebar-section">
+      <div class="sidebar-label">Tumor Overlay</div>
+      <div class="overlay-controls">
+        <div class="overlay-row">
+            <div class="overlay-name">
+                <div class="color-dot" style="background:var(--ncr)"></div>
+                Necrotic Core
+                <span class="metric-badge badge-wt">NCR</span>
+            </div>
+            <button class="toggle-btn active" id="toggle-ncr" onclick="toggleSegment('ncr')">Visible</button>
+        </div>
+        <div class="overlay-row">
+            <div class="overlay-name">
+                <div class="color-dot" style="background:var(--et)"></div>
+                Enhancing Tumor
+                <span class="metric-badge badge-et">ET</span>
+            </div>
+            <button class="toggle-btn active" id="toggle-et" onclick="toggleSegment('et')">Visible</button>
+        </div>
+        <div class="overlay-row">
+            <div class="overlay-name">
+                <div class="color-dot" style="background:var(--edema)"></div>
+                Edema (SNFH)
+                <span class="metric-badge badge-tc">ED</span>
+            </div>
+            <button class="toggle-btn active" id="toggle-edema" onclick="toggleSegment('edema')">Visible</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Model metrics -->
+    <div class="sidebar-section">
+      <div class="sidebar-label">Model Performance</div>
+      <div class="metrics">
+        <div class="metric-row">
+          <span class="metric-label">Whole Tumor (WT)</span>
+          <span class="metric-value">0.925</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-label">Tumor Core (TC)</span>
+          <span class="metric-value">0.910</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-label">Enhancing Tumor (ET)</span>
+          <span class="metric-value">0.848</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-label">Architecture</span>
+          <span class="metric-value" style="font-size:10px">3D U-Net</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-label">Dataset</span>
+          <span class="metric-value" style="font-size:10px">BraTS 2023</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar-footer">
+      <p class="footer-note">
+        <strong>NeuralSeg</strong> uses a 3D U-Net trained on BraTS 2023 GLI data.
+        Segmentation is for research purposes only and not intended for clinical diagnosis.
+      </p>
+    </div>
+
+  </aside>
+
+  <main>
+    <div id="canvas-container">
+      <canvas id="gl-canvas"></canvas>
+
+      <div class="empty-state" id="empty-state">
+        <div class="empty-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="1.5">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M8 12 Q12 6 16 12 Q12 18 8 12"/>
+            <circle cx="12" cy="12" r="2" fill="#888"/>
+          </svg>
+        </div>
+        <div class="empty-title">No volume loaded</div>
+        <div class="empty-sub">Upload all four MRI modalities and run segmentation</div>
+      </div>
+
+      <div class="loading-overlay" id="loading-overlay">
+        <div class="spinner"></div>
+        <div class="loading-text">Running inference</div>
+        <div class="progress-steps">
+          <div class="step" id="step-preprocess">
+            <div class="step-dot"></div> Preprocessing volumes
+          </div>
+          <div class="step" id="step-inference">
+            <div class="step-dot"></div> Sliding window inference
+          </div>
+          <div class="step" id="step-render">
+            <div class="step-dot"></div> Rendering segmentation
+          </div>
+        </div>
+      </div>
+
+      <div class="canvas-info" id="canvas-info" style="display:none">
+        <div class="info-pill" id="info-dims">—</div>
+        <div class="info-pill">BraTS 2023 GLI</div>
+        <div class="info-pill">3D U-Net</div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  let nv = null;
+  let segVolumeIndex = -1;
+  let files = { t1c: null, t1n: null, t2f: null, t2w: null };
+  let visibility = { ncr: true, edema: true, et: true };
+  let cmapToggle = false;
+
+  async function initNiivue() {
+    try {
+      const NiivueClass = window.niivue ? window.niivue.Niivue : window.Niivue;
+      if (!NiivueClass) throw new Error("Niivue not loaded");
+
+      nv = new NiivueClass({
+        show3Dcrosshair: false,
+        backColor: [0.05, 0.05, 0.05, 1],
+        crosshairColor: [0.4, 0.4, 0.4, 1],
+        selectionBoxColor: [1, 1, 1, 0.5],
+        clipPlaneColor: [0.8, 0.8, 0.8, 0.2],
+        rulerColor: [1, 1, 1, 0.8],
+        multiplanarForceRender: true,
+        multiplanarLayout: 2,
+        multiplanarPadPixels: 5,
+      });
+
+      await nv.attachToCanvas(document.getElementById('gl-canvas'));
+      nv.setSliceType(nv.sliceTypeMultiplanar);
+      await loadSample();
+
+      console.log("Niivue initialized");
+    } catch (e) {
+      console.error("Niivue init failed:", e);
+      showToast("Failed to initialize 3D viewer");
+    }
+  }
+
+  async function loadSample() {
+    await nv.loadVolumes([
+        { url: '/static/samples/BraTS-GLI-00006-000-t1c.nii.gz', name: 't1c.nii', colormap: 'gray', opacity: 1.0 },
+        { url: '/static/samples/BraTS-GLI-00006-000-seg.nii.gz', name: 'seg.nii', colormap: 'warm', opacity: 1.0, isLabels: true }
+    ]);
+
+    segVolumeIndex = 1;
+    applySegColormap();
+
+    document.getElementById('empty-state').style.display = 'none';
+    document.getElementById('canvas-info').style.display = 'flex';
+
+    const vol = nv.volumes[0];
+    if (vol && vol.dims) {
+        document.getElementById('info-dims').textContent =
+            `${vol.dims[1]}×${vol.dims[2]}×${vol.dims[3]} vox`;
+    }
+}
+
+  initNiivue();
+
+  function onFileChange(modality, input) {
+    if (!input.files[0]) return;
+    files[modality] = input.files[0];
+    document.getElementById(`row-${modality}`).classList.add('loaded');
+    const n = input.files[0].name;
+    document.getElementById(`name-${modality}`).textContent = n.length > 22 ? n.substring(0, 22) + '…' : n;
+    checkReady();
+  }
+
+  function checkReady() {
+    const allLoaded = Object.values(files).every(f => f !== null);
+    document.getElementById('btn-segment').disabled = !allLoaded;
+    if (allLoaded) setStatus('ready', 'Ready to segment');
+  }
+
+  function setStatus(type, text) {
+    document.getElementById('status-dot').className = 'status-dot ' + type;
+    document.getElementById('status-text').textContent = text;
+  }
+
+  async function runSegmentation() {
+    const btn = document.getElementById('btn-segment');
+    btn.disabled = true;
+    setStatus('loading', 'Running segmentation…');
+    showLoading(true);
+    setStep('step-preprocess', 'active');
+
+    try {
+      const formData = new FormData();
+      formData.append('t1c', files.t1c);
+      formData.append('t1n', files.t1n);
+      formData.append('t2f', files.t2f);
+      formData.append('t2w', files.t2w);
+
+      setTimeout(() => {
+        setStep('step-preprocess', 'done');
+        setStep('step-inference', 'active');
+      }, 3000);
+
+      const response = await fetch('/segment', { method: 'POST', body: formData });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.detail || 'Segmentation failed');
+      }
+
+      setStep('step-inference', 'done');
+      setStep('step-render', 'active');
+
+      const data = await response.json();
+
+      function b64toBlob(b64) {
+        const bytes = atob(b64);
+        const arr = new Uint8Array(bytes.length);
+        for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+        return new Blob([arr], { type: 'application/octet-stream' });
+      }
+
+      const t1cUrl = URL.createObjectURL(b64toBlob(data.t1c));
+      const segUrl = URL.createObjectURL(b64toBlob(data.segmentation));
+
+      await nv.loadVolumes([
+        { url: t1cUrl, name: 't1c.nii', colormap: 'gray', opacity: 1.0 },
+        { url: segUrl, name: 'seg.nii', colormap: 'warm', opacity: 1.0, isLabels: true }
+      ]);
+
+      segVolumeIndex = 1;
+      applySegColormap();
+
+      document.getElementById('empty-state').style.display = 'none';
+      document.getElementById('canvas-info').style.display = 'flex';
+
+      const vol = nv.volumes[0];
+      if (vol && vol.dims) {
+        document.getElementById('info-dims').textContent =
+          `${vol.dims[1]}×${vol.dims[2]}×${vol.dims[3]} vox`;
+      }
+
+      setStep('step-render', 'done');
+      setTimeout(() => {
+        showLoading(false);
+        setStatus('ready', 'Segmentation complete');
+        btn.disabled = false;
+      }, 600);
+
+    } catch (err) {
+      showLoading(false);
+      setStatus('error', 'Segmentation failed');
+      showToast(err.message);
+      btn.disabled = false;
+      resetSteps();
+    }
+  }
+
+  function applySegColormap() {
+    if (segVolumeIndex < 0 || !nv.volumes[segVolumeIndex]) return;
+
+    // Exact integer matches: 0=Background, 1=NCR, 2=Edema, 3=ET
+    const R = [0, 220, 40,  50];
+    const G = [0, 50,  180, 150];
+    const B = [0, 50,  80,  220];
+
+    // Toggle alpha between 255 (visible) and 0 (hidden)
+    const A = [
+      0, // Background is always hidden
+      visibility.ncr ? 255 : 0,
+      visibility.edema ? 255 : 0,
+      visibility.et ? 255 : 0
+    ];
+
+    // Providing this labels array triggers NiiVue's strict discrete matching
+    const labels = ["Background", "NCR", "Edema", "ET"];
+
+    cmapToggle = !cmapToggle;
+    const cmapName = cmapToggle ? 'seg_A' : 'seg_B';
+
+    nv.addColormap(cmapName, { R, G, B, A, labels });
+
+    const vol = nv.volumes[segVolumeIndex];
+    vol.colormap = cmapName;
+    nv.updateGLVolume();
+  }
+
+  function toggleSegment(label) {
+    visibility[label] = !visibility[label];
+    const btn = document.getElementById(`toggle-${label}`);
+    btn.classList.toggle('active', visibility[label]);
+    btn.textContent = visibility[label] ? 'Visible' : 'Hidden';
+    applySegColormap();
+  }
+
+  function setView(mode) {
+    document.getElementById('btn-multi').classList.toggle('active', mode === 'multi');
+    document.getElementById('btn-3d').classList.toggle('active', mode === '3d');
+    if (!nv) return;
+    if (mode === 'multi') {
+      nv.setSliceType(nv.sliceTypeMultiplanar);
+    } else {
+      nv.setSliceType(nv.sliceTypeRender);
+    }
+  }
+
+  function showLoading(show) {
+    document.getElementById('loading-overlay').classList.toggle('active', show);
+  }
+
+  function setStep(id, state) {
+    document.getElementById(id).className = 'step ' + state;
+  }
+
+  function resetSteps() {
+    ['step-preprocess', 'step-inference', 'step-render'].forEach(id => {
+      document.getElementById(id).className = 'step';
+    });
+  }
+
+  function showToast(msg) {
+    const toast = document.getElementById('toast');
+    toast.textContent = msg;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 4000);
+  }
+
+  window.addEventListener('resize', () => { if (nv) nv.resizeListener(); });
+</script>
+</body>
+</html>

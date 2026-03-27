@@ -1,5 +1,6 @@
 .venv/
 data/
+checkpoints/
 notebooks/
 .git/
 __pycache__/

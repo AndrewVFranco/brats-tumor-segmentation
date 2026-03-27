@@ -213,3 +213,4 @@ data/processed/
 *.nii
 /data/kaggledata/
 /data/splits/dataset-metadata.json
+.DS_Store
