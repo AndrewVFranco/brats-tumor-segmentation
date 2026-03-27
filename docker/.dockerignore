@@ -1,8 +1,6 @@
 .venv/
 data/
-checkpoints/
 notebooks/
 .git/
 __pycache__/
-*.pth
 *.egg-info/
