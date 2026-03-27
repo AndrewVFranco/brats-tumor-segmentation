@@ -1,0 +1,7 @@
+.venv/
+data/
+notebooks/
+.git/
+__pycache__/
+*.pth
+*.egg-info/
