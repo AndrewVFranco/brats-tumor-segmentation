@@ -47,3 +47,17 @@ def get_val_transforms():
         Spacingd(keys=["image", "label"], pixdim=(1.0, 1.0, 1.0), mode=("bilinear", "nearest")),
         SpatialPadd(keys=["image", "label"], spatial_size=(128, 128, 128))
     ])
+
+
+def get_inference_transforms():
+    """
+    Apply deterministic transforms for inference — no augmentation.
+
+    Returns:
+        Compose: Transform pipeline for inference
+    """
+    return Compose([
+        EnsureTyped(keys=["image"]),
+        Orientationd(keys=["image"], axcodes="RAS"),
+        Spacingd(keys=["image"], pixdim=(1.0, 1.0, 1.0), mode="bilinear")
+    ])
