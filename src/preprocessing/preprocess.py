@@ -5,7 +5,7 @@ import numpy as np
 
 def preprocess_case(case_dir: Path, output_dir: Path):
     """
-    Preprocesses a case to prepare it for training.
+    Preprocesses a case file to prepare it for training.
 
     Args:
         case_dir (Path): Directory of the target case
@@ -42,6 +42,28 @@ def preprocess_case(case_dir: Path, output_dir: Path):
     # Delete case_files dictionary to save memory
     del case_files
 
+    # Process arrays
+    modality_arrays = preprocess_array(modality_arrays)
+
+    # Save the preprocessed modalities
+    case_output_dir = output_dir / case_name
+    case_output_dir.mkdir(parents=True, exist_ok=True)
+
+    for modality in modality_arrays:
+        nib.save(nib.Nifti1Image(modality_arrays[modality], affine), case_output_dir / f"{case_name}-{modality}.nii.gz")
+
+    return None
+
+def preprocess_array(modality_arrays):
+    """
+    Preprocesses the dictionary containing target arrays.
+
+    Args:
+        modality_arrays: Dictionary of each modality to be processed
+
+    Returns:
+        modality_arrays: Processed modality_arrays dictionary
+    """
     # Instantiate bias field corrector
     corrector = sitk.N4BiasFieldCorrectionImageFilter()
 
@@ -83,11 +105,4 @@ def preprocess_case(case_dir: Path, output_dir: Path):
     for modality in modality_arrays:
         modality_arrays[modality] = modality_arrays[modality][x_min:x_max, y_min:y_max, z_min:z_max]
 
-    # Save the preprocessed modalities
-    case_output_dir = output_dir / case_name
-    case_output_dir.mkdir(parents=True, exist_ok=True)
-
-    for modality in modality_arrays:
-        nib.save(nib.Nifti1Image(modality_arrays[modality], affine), case_output_dir / f"{case_name}-{modality}.nii.gz")
-
-    return None
+    return modality_arrays
