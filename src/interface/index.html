@@ -776,33 +776,44 @@
   }
 
   function applySegColormap() {
-    if (segVolumeIndex < 0 || !nv.volumes[segVolumeIndex]) return;
+  if (segVolumeIndex < 0 || !nv.volumes[segVolumeIndex]) return;
 
-    // Exact integer matches: 0=Background, 1=NCR, 2=Edema, 3=ET
-    const R = [0, 220, 40,  50];
-    const G = [0, 50,  180, 150];
-    const B = [0, 50,  80,  220];
+  const R = new Array(256).fill(0);
+  const G = new Array(256).fill(0);
+  const B = new Array(256).fill(0);
+  const A = new Array(256).fill(0);
 
-    // Toggle alpha between 255 (visible) and 0 (hidden)
-    const A = [
-      0, // Background is always hidden
-      visibility.ncr ? 255 : 0,
-      visibility.edema ? 255 : 0,
-      visibility.et ? 255 : 0
-    ];
-
-    // Providing this labels array triggers NiiVue's strict discrete matching
-    const labels = ["Background", "NCR", "Edema", "ET"];
-
-    cmapToggle = !cmapToggle;
-    const cmapName = cmapToggle ? 'seg_A' : 'seg_B';
-
-    nv.addColormap(cmapName, { R, G, B, A, labels });
-
-    const vol = nv.volumes[segVolumeIndex];
-    vol.colormap = cmapName;
-    nv.updateGLVolume();
+  for (let i = 0; i < 256; i++) {
+    if (i < 32) {
+      A[i] = 0;
+    } else if (i < 96) {
+      // Voxel 1 maps to ~64 (NCR)
+      R[i] = 220; G[i] = 50; B[i] = 50;
+      A[i] = visibility.ncr ? 255 : 0;
+    } else if (i < 160) {
+      // Voxel 2 maps to ~128 (Edema)
+      R[i] = 40; G[i] = 180; B[i] = 80;
+      A[i] = visibility.edema ? 255 : 0;
+    } else {
+      // Voxels 3 & 4 map to ~191 and 255 (ET)
+      R[i] = 50; G[i] = 150; B[i] = 220;
+      A[i] = visibility.et ? 255 : 0;
+    }
   }
+
+  cmapToggle = !cmapToggle;
+  const cmapName = cmapToggle ? 'seg_A' : 'seg_B';
+
+  nv.addColormap(cmapName, { R, G, B, A });
+
+  const vol = nv.volumes[segVolumeIndex];
+  vol.colormap = cmapName;
+
+  vol.cal_min = 0;
+  vol.cal_max = 4;
+
+  nv.updateGLVolume();
+}
 
   function toggleSegment(label) {
     visibility[label] = !visibility[label];
