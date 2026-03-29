@@ -1,11 +1,13 @@
 import numpy as np
+import base64
 import tempfile
 import torch
 import os
 import nibabel as nib
 from pathlib import Path
 from fastapi import FastAPI, UploadFile, File, Request, HTTPException, BackgroundTasks
-from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, HTMLResponse
 from contextlib import asynccontextmanager
 from monai.inferers import sliding_window_inference
 from src.training.model import get_model
@@ -28,6 +30,13 @@ async def lifespan(app):
     # Run on shutdown
 
 app = FastAPI(lifespan=lifespan)
+app.mount("/static", StaticFiles(directory="src/interface"), name="static")
+
+@app.get("/")
+async def root():
+    with open("src/interface/index.html") as f:
+        return HTMLResponse(f.read())
+
 @app.post("/segment")
 async def segment(request: Request,
                   background_tasks: BackgroundTasks,
@@ -88,21 +97,41 @@ async def segment(request: Request,
         seg_mask = torch.argmax(output, dim=1).squeeze(0).cpu().numpy().astype(np.uint8)
 
         # Save as NIfTI using the affine from the input
-        seg_nifti = nib.Nifti1Image(seg_mask, affine.affine)
+        seg_nifti = nib.Nifti1Image(seg_mask, np.eye(4))
 
-        # Save to a temp file
         with tempfile.NamedTemporaryFile(suffix=".nii", delete=False) as tmp:
             nib.save(seg_nifti, tmp.name)
             output_path = tmp.name
 
-        # Temp file cleanup
+        # Save preprocessed T1c as NIfTI with identity affine for display
+        display_t1c = modality_arrays["t1c"].astype(np.float32)
+        # Push the exact 0 background below the darkest Z-scored brain tissue
+        display_t1c[display_t1c == 0] = display_t1c.min() - 1
+
+        # Save preprocessed T1c as NIfTI with identity affine for display
+        t1c_nifti = nib.Nifti1Image(display_t1c, np.eye(4))
+
+        with tempfile.NamedTemporaryFile(suffix=".nii", delete=False) as tmp:
+            nib.save(t1c_nifti, tmp.name)
+            t1c_processed_path = tmp.name
+
+        # Cleanup uploaded temp files
         for path in [t1c_path, t1n_path, t2f_path, t2w_path]:
             os.unlink(path)
 
-        background_tasks.add_task(os.unlink, output_path)
+        # Read both output files as base64
+        with open(output_path, 'rb') as f:
+            seg_b64 = base64.b64encode(f.read()).decode()
 
-        # Return the file
-        return FileResponse(output_path, media_type="application/octet-stream", filename="segmentation.nii")
+        with open(t1c_processed_path, 'rb') as f:
+            t1c_b64 = base64.b64encode(f.read()).decode()
+
+        # Schedule cleanup of output temp files
+        background_tasks.add_task(os.unlink, output_path)
+        background_tasks.add_task(os.unlink, t1c_processed_path)
+
+        # Return both files as base64 JSON
+        return {"segmentation": seg_b64, "t1c": t1c_b64}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Inference failed: {str(e)}")
 
