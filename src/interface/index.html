@@ -6,6 +6,7 @@
 <title>NeuralSeg — Brain Tumor Segmentation</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&family=DM+Mono:wght@300;400&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/@niivue/niivue@0.57.0/dist/niivue.umd.js"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -21,13 +22,36 @@
     --ncr: #dc3545;
     --edema: #28a745;
     --et: #2563eb;
-    --ncr-light: #fdf0f1;
-    --edema-light: #f0faf2;
-    --et-light: #eff4ff;
     --sidebar: 300px;
     --header: 52px;
     --radius: 8px;
     --radius-sm: 4px;
+    --btn-bg: #eeeeee;
+    --btn-text: #ffffff;
+    --hover: white;
+    --seg-btn: #9c9890;
+  }
+
+  body.dark-mode {
+    --bg: #1a1918;
+    --surface: #101010;
+    --border: #2a2a2a;
+    --border-strong: #3a3a3a;
+    --text: #e8e6e1;
+    --text-2: #9c9890;
+    --text-3: #6b6860;
+    --accent: #22c55e;
+    --ncr: #dc3545;
+    --edema: #28a745;
+    --et: #2563eb;
+    --sidebar: 300px;
+    --header: 52px;
+    --radius: 8px;
+    --radius-sm: 4px;
+    --btn-bg: #2a2a2a;
+    --btn-text: #e8e6e1;
+    --hover: black;
+    --seg-btn: #2a2a2a;
   }
 
   html, body { height: 100%; overflow: hidden; }
@@ -78,22 +102,44 @@
 
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
 
-  /* Layout */
   .layout {
     display: flex;
     height: 100vh;
     padding-top: var(--header);
+    overflow: hidden;
   }
 
-  /* Sidebar */
   aside {
     width: var(--sidebar);
     flex-shrink: 0;
     background: var(--surface);
     border-right: 1px solid var(--border);
-    display: flex; flex-direction: column;
+    display: flex;
+    flex-direction: column;
     overflow-y: auto;
     height: 100%;
+    transition: margin-left 0.3s ease;
+  }
+
+  main {
+    flex: 1;
+    position: relative;
+    background: #0d0d0d;
+    transition: width 0.3s ease;
+  }
+
+  /* When collapsed, slide the sidebar out of view to the left */
+  body.collapsed aside {
+    margin-left: calc(-1 * var(--sidebar));
+  }
+
+  /* Mobile adjustment: Sidebar becomes an overlay */
+  @media (max-width: 768px) {
+    aside {
+      position: fixed;
+      z-index: 1000;
+      box-shadow: 10px 0 30px rgba(0,0,0,0.5);
+    }
   }
 
   .sidebar-section {
@@ -120,14 +166,17 @@
     padding: 8px 10px;
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
-    background: var(--bg);
+    background: var(--btn-bg);
     cursor: pointer;
     transition: border-color 0.15s, background 0.15s;
     position: relative;
   }
 
-  .upload-row:hover { border-color: var(--border-strong); background: white; }
-  .upload-row.loaded { border-color: #22c55e; background: #f0faf2; }
+  .upload-row:hover { border-color: var(--border-strong); background: var(--hover); }
+  .upload-row.loaded {
+    border-color: #28a745;
+    color: white;
+  }
 
   .upload-row input[type="file"] {
     position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%;
@@ -162,7 +211,7 @@
   .btn-segment {
     width: 100%;
     padding: 10px;
-    background: var(--text);
+    background: var(--seg-btn);
     color: white;
     border: none;
     border-radius: var(--radius-sm);
@@ -186,7 +235,7 @@
 
   .view-btn {
     flex: 1; padding: 7px 8px;
-    background: var(--bg);
+    background: var(--btn-bg);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     font-family: 'DM Sans', sans-serif;
@@ -197,10 +246,10 @@
     text-align: center;
   }
 
-  .view-btn.active {
-    background: var(--text);
+  .view-btn.active, .toggle-btn.active {
+    background: var(--btn-bg);
     border-color: var(--text);
-    color: white;
+    color: var(--text);
   }
 
   /* Opacity sliders */
@@ -227,7 +276,8 @@
 
   .overlay-value {
     font-family: 'DM Mono', monospace;
-    font-size: 11px; color: var(--text-2);
+    font-size: 11px;
+    color: var(--text-2);
   }
 
   input[type="range"] {
@@ -243,7 +293,7 @@
     -webkit-appearance: none;
     width: 13px; height: 13px;
     border-radius: 50%;
-    background: var(--text);
+    background: var(--btn-bg);
     cursor: pointer;
     transition: transform 0.1s;
   }
@@ -275,9 +325,9 @@
     border-radius: 3px; font-family: 'DM Mono', monospace;
   }
 
-  .badge-wt { background: #fdf0f1; color: var(--ncr); }
-  .badge-tc { background: var(--edema-light); color: #166534; }
-  .badge-et { background: var(--et-light); color: #1d4ed8; }
+  .badge-wt { background: var(--btn-bg); color: var(--ncr); }
+  .badge-tc { background: var(--btn-bg); color: var(--edema); }
+  .badge-et { background: var(--btn-bg); color: var(--et); }
 
   /* Main canvas area */
   main {
@@ -382,7 +432,7 @@
     padding: 4px 10px;
     border-radius: 20px;
     border: 1px solid var(--border);
-    background: var(--bg);
+    background: var(--btn-bg);
     font-size: 11px;
     font-family: 'DM Sans', sans-serif;
     color: var(--text-2);
@@ -391,9 +441,9 @@
 }
 
 .toggle-btn.active {
-    background: var(--text);
+    background: var(--btn-bg);
     border-color: var(--text);
-    color: white;
+    color: var(--text);
 }
 
   /* Canvas info bar */
@@ -404,7 +454,7 @@
 
   .info-pill {
     padding: 4px 8px;
-    background: rgba(0,0,0,0.6);
+    background: var(--btn-bg);
     border: 1px solid rgba(255,255,255,0.08);
     border-radius: 20px;
     font-family: 'DM Mono', monospace;
@@ -446,18 +496,39 @@
   .footer-note strong { color: var(--text-2); font-weight: 500; }
 </style>
 </head>
-<body>
+<body class="dark-mode">
 
 <header>
-  <div class="logo">Neural<span>Seg</span></div>
-  <div class="status">
-    <div class="status-dot" id="status-dot"></div>
-    <span id="status-text">Upload MRI volumes to begin</span>
+  <div style="display: flex; align-items: center; gap: 12px;">
+    <button onclick="toggleSidebar()" style="background:none; border:none; cursor:pointer; color:var(--text-2); display:flex; align-items:center;">
+      <i data-lucide="menu"></i>
+    </button>
+    <div class="logo">Neural<span>Seg</span></div>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 15px;">
+    <div class="status">
+      <div class="status-dot" id="status-dot"></div>
+      <span id="status-text">Upload MRI volumes to begin</span>
+    </div>
+    <button id="theme-toggle" onclick="toggleTheme()" style="background:none; border:none; outline:none; color:inherit;">
+      <i id="theme-icon" data-lucide="sun"></i>
+    </button>
   </div>
 </header>
 
 <div class="layout">
   <aside>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Sample Cases</div>
+      <select id="test-case-select" onchange="loadTestCase(this.value)" style="width: 100%; padding: 8px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 4px; font-size: 12px; cursor: pointer;">
+        <option value="" disabled selected>Select a sample case...</option>
+        <option value="case1">BraTS-GLI-00000-000</option>
+        <option value="case2">BraTS-GLI-00003-000</option>
+        <option value="case3">BraTS-GLI-00006-000</option>
+      </select>
+    </div>
 
     <!-- Upload -->
     <div class="sidebar-section">
@@ -652,6 +723,7 @@
       await nv.attachToCanvas(document.getElementById('gl-canvas'));
       nv.setSliceType(nv.sliceTypeMultiplanar);
       await loadSample();
+      checkReady();
 
       console.log("Niivue initialized");
     } catch (e) {
@@ -662,8 +734,8 @@
 
   async function loadSample() {
     await nv.loadVolumes([
-        { url: '/static/samples/BraTS-GLI-00003-000/BraTS-GLI-00003-000-t1c.nii.gz', name: 't1c.nii', colormap: 'gray', opacity: 1.0 },
-        { url: '/static/samples/BraTS-GLI-00003-000/BraTS-GLI-00003-000-seg.nii.gz', name: 'seg.nii', colormap: 'warm', opacity: 1.0, isLabels: true }
+        { url: '/static/samples/BraTS-GLI-00000-000/BraTS-GLI-00000-000-t1c.nii.gz', name: 't1c.nii', colormap: 'gray', opacity: 1.0 },
+        { url: '/static/samples/BraTS-GLI-00000-000/BraTS-GLI-00000-000-seg.nii.gz', name: 'seg.nii', colormap: 'warm', opacity: 1.0, isLabels: true }
     ]);
 
     segVolumeIndex = 1;
@@ -856,6 +928,84 @@
   }
 
   window.addEventListener('resize', () => { if (nv) nv.resizeListener(); });
+
+  function toggleTheme() {
+    const body = document.body;
+    body.classList.toggle('dark-mode');
+
+    const iconAttr = body.classList.contains('dark-mode') ? 'sun' : 'moon';
+    const iconElement = document.getElementById('theme-icon');
+
+    // Update the icon name and re-render
+    iconElement.setAttribute('data-lucide', iconAttr);
+    lucide.createIcons();
+  }
+
+  window.addEventListener('load', () => {
+  // 1. Set the initial state based on the body class
+  const isDark = document.body.classList.contains('dark-mode');
+  const iconElement = document.getElementById('theme-icon');
+
+  if (iconElement) {
+    iconElement.setAttribute('data-lucide', isDark ? 'sun' : 'moon');
+    // 2. Tell Lucide to render the icon immediately
+    lucide.createIcons();
+  }
+});
+
+  function toggleSidebar() {
+    document.body.classList.toggle('collapsed');
+
+    // Give the CSS transition 300ms to finish, then tell Niivue to resize the canvas
+    setTimeout(() => {
+      if (nv) {
+        nv.resizeListener();
+      }
+    }, 350);
+  }
+
+  async function loadTestCase(caseId) {
+  if (!nv) return;
+
+  // Define your sample mapping here
+  const samples = {
+    'case1': {
+      t1c: '/static/samples/BraTS-GLI-00000-000/BraTS-GLI-00000-000-t1c.nii.gz',
+      seg: '/static/samples/BraTS-GLI-00000-000/BraTS-GLI-00000-000-seg.nii.gz'
+    },
+    'case2': {
+      t1c: '/static/samples/BraTS-GLI-00003-000/BraTS-GLI-00003-000-t1c.nii.gz',
+      seg: '/static/samples/BraTS-GLI-00003-000/BraTS-GLI-00003-000-seg.nii.gz'
+    },
+    'case3': {
+      t1c: '/static/samples/BraTS-GLI-00006-000/BraTS-GLI-00006-000-t1c.nii.gz',
+      seg: '/static/samples/BraTS-GLI-00006-000/BraTS-GLI-00006-000-seg.nii.gz'
+    }
+  };
+
+  const selected = samples[caseId];
+  if (!selected) return;
+
+  try {
+    // 1. Clear existing volumes to prevent overlaying
+    await nv.volumes.forEach(v => nv.removeVolume(v));
+
+    // 2. Load the new pair
+    await nv.loadVolumes([
+      { url: selected.t1c, name: 't1c.nii', colormap: 'gray', opacity: 1.0 },
+      { url: selected.seg, name: 'seg.nii', colormap: 'warm', opacity: 1.0, isLabels: true }
+    ]);
+
+    // 3. Re-apply tumor colors
+    segVolumeIndex = 1;
+    applySegColormap();
+
+  } catch (err) {
+    console.error(err);
+    showToast("Failed to load sample data");
+    setStatus('error', "Load failed");
+  }
+}
 </script>
 </body>
 </html>
