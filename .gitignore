@@ -209,7 +209,7 @@ __marimo__/
 # General
 data/raw/
 data/processed/
-*.nii.gz
 *.nii
 /data/kaggledata/
 /data/splits/dataset-metadata.json
+*.DS_Store

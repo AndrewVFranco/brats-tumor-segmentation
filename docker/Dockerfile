@@ -3,5 +3,5 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 COPY . .
-EXPOSE 8000
-CMD ["uvicorn", "src.inference.predict:app", "--host", "0.0.0.0", "--port", "8000"]
+EXPOSE 7860
+CMD ["uvicorn", "src.inference.predict:app", "--host", "0.0.0.0", "--port", "7860"]
