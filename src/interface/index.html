@@ -662,8 +662,8 @@
 
   async function loadSample() {
     await nv.loadVolumes([
-        { url: '/static/samples/BraTS-GLI-00006-000-t1c.nii.gz', name: 't1c.nii', colormap: 'gray', opacity: 1.0 },
-        { url: '/static/samples/BraTS-GLI-00006-000-seg.nii.gz', name: 'seg.nii', colormap: 'warm', opacity: 1.0, isLabels: true }
+        { url: '/static/samples/BraTS-GLI-00003-000/BraTS-GLI-00003-000-t1c.nii.gz', name: 't1c.nii', colormap: 'gray', opacity: 1.0 },
+        { url: '/static/samples/BraTS-GLI-00003-000/BraTS-GLI-00003-000-seg.nii.gz', name: 'seg.nii', colormap: 'warm', opacity: 1.0, isLabels: true }
     ]);
 
     segVolumeIndex = 1;
