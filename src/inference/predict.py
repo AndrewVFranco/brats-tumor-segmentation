@@ -18,7 +18,8 @@ CHECKPOINT_DIR = Path(os.getenv("CHECKPOINT_DIR", "checkpoints"))
 @asynccontextmanager
 async def lifespan(app):
     # Run on startup
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else torch.device("mps" if torch.backends.mps.is_available() else "cpu"))
+    print(f"Device: {device}")
     app.state.device = device
     model = get_model().to(device)
     app.state.model = model
@@ -102,9 +103,11 @@ async def segment(request: Request,
         with tempfile.NamedTemporaryFile(suffix=".nii", delete=False) as tmp:
             nib.save(seg_nifti, tmp.name)
             output_path = tmp.name
+            print(f"seg file saved at: {output_path}")
 
         # Save preprocessed T1c as NIfTI with identity affine for display
         display_t1c = modality_arrays["t1c"].astype(np.float32)
+
         # Push the exact 0 background below the darkest Z-scored brain tissue
         display_t1c[display_t1c == 0] = display_t1c.min() - 1
 
@@ -114,6 +117,7 @@ async def segment(request: Request,
         with tempfile.NamedTemporaryFile(suffix=".nii", delete=False) as tmp:
             nib.save(t1c_nifti, tmp.name)
             t1c_processed_path = tmp.name
+            print(f"t1c file saved at: {t1c_processed_path}")
 
         # Cleanup uploaded temp files
         for path in [t1c_path, t1n_path, t2f_path, t2w_path]:
@@ -126,7 +130,7 @@ async def segment(request: Request,
         with open(t1c_processed_path, 'rb') as f:
             t1c_b64 = base64.b64encode(f.read()).decode()
 
-        # Schedule cleanup of output temp files
+        # Schedule cleanup of output temp files - Comment out to save files
         background_tasks.add_task(os.unlink, output_path)
         background_tasks.add_task(os.unlink, t1c_processed_path)
 

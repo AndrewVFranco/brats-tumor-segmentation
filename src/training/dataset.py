@@ -39,11 +39,11 @@ class BraTSDataset(Dataset):
 
         try:
             modality_arrays = {
-                "seg": nib.load(self.data_dir / case_name / f"{case_name}-seg.nii").get_fdata(),
-                "t1c": nib.load(self.data_dir / case_name / f"{case_name}-t1c.nii").get_fdata(),
-                "t1n": nib.load(self.data_dir / case_name / f"{case_name}-t1n.nii").get_fdata(),
-                "t2f": nib.load(self.data_dir / case_name / f"{case_name}-t2f.nii").get_fdata(),
-                "t2w": nib.load(self.data_dir / case_name / f"{case_name}-t2w.nii").get_fdata(),
+                "seg": nib.load(self.data_dir / case_name / f"{case_name}-seg.nii.gz").get_fdata(),
+                "t1c": nib.load(self.data_dir / case_name / f"{case_name}-t1c.nii.gz").get_fdata(),
+                "t1n": nib.load(self.data_dir / case_name / f"{case_name}-t1n.nii.gz").get_fdata(),
+                "t2f": nib.load(self.data_dir / case_name / f"{case_name}-t2f.nii.gz").get_fdata(),
+                "t2w": nib.load(self.data_dir / case_name / f"{case_name}-t2w.nii.gz").get_fdata(),
             }
 
             # Stack modality arrays into (4, H, W, D) structure
