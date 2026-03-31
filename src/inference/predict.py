@@ -7,7 +7,7 @@ import nibabel as nib
 from pathlib import Path
 from fastapi import FastAPI, UploadFile, File, Request, HTTPException, BackgroundTasks
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import HTMLResponse
 from contextlib import asynccontextmanager
 from monai.inferers import sliding_window_inference
 from src.training.model import get_model
